@@ -1,26 +1,54 @@
 #!/bin/bash
+set -e  # Stop script immediately if any command fails
 
 ENV_NAME='respointnet2'
 
-conda create –n $ENV_NAME python=3.10 -y
-source activate $ENV_NAME
+# Ensure conda commands work inside bash scripts
+eval "$(conda shell.bash hook)"
 
-# 250915, for newer versions of nvidia drivers(e.g., 550) with CUDA12.1+, 1) use pytorch 1.13.1 with CUDA toolkit 11.7; 2) make sure your system has installed the system-wide CUDA toolkit 11.7. details on how to install two CUDA toolkit versions on your system, see https://medium.com/@yushantripleseven/managing-multiple-cuda-cudnn-installations-ba9cdc5e2654#31dc and yc/faq.md
-conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.7 -c pytorch -c nvidia
+# 1. Create and activate environment
+conda create -n "$ENV_NAME" python=3.10 pip numpy -y
+conda activate "$ENV_NAME"
 
-conda install -c conda-forge opencv -y
-conda install -c anaconda pillow -y
-pip3 install termcolor tensorboard h5py easydict scikit-learn
+# 2. PyTorch and core dependencies (CUDA 11.7)
+conda install -y -c pytorch -c nvidia \
+    pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cuda=11.7
 
+# 3. Vision & pinned MKL dependencies
+conda install -y -c conda-forge opencv
+conda install -y -c anaconda pillow
+conda install -y mkl=2021.4.0 intel-openmp=2021.4.0
 
-# install custom operators
+# 4. Pin setuptools for numpy.distutils and install remaining python packages
+pip install "setuptools<60" termcolor tensorboard h5py easydict scikit-learn
+
+# 5. CUDA 11.7 dev tools & GCC 11 compiler suite
+conda install -y -c nvidia \
+    cuda-nvcc=11.7 \
+    cuda-cudart-dev=11.7 \
+    cuda-cccl=11.7 \
+    libcusparse-dev \
+    libcublas-dev \
+    libcusolver-dev \
+    libcurand-dev
+
+conda install -y -c conda-forge \
+    gcc_linux-64=11.4.0 \
+    gxx_linux-64=11.4.0
+
+# Export compiler flags and paths
+export CC="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
+export CXX="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-g++"
+export CUDA_HOME="$CONDA_PREFIX"
+export TORCH_CUDA_ARCH_LIST="8.6"
+
+# 6. Install custom operators
 cd ops/cpp_wrappers
+rm -rf build *.so
 sh compile_wrappers.sh
+
 cd ../pt_custom_ops
+rm -rf build dist *.egg-info
 python setup.py install --user
 cd ../..
 
-# pre-processing all datasets, you can modify it according to your needs.
-mkdir -p data/PSNet
-ln -s /mnt/nas/point-cloud-datasets/PSNet5 PSNet5
-python datasets/PSNet5.py

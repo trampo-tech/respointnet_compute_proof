@@ -2,7 +2,7 @@ datasets: 'psnet5'
 data_root: ''
 num_classes: 5
 input_features_dim: 4
-batch_size: 6 # set 2, about 8Gb; for 3090 GPU, set to 6
+batch_size: 2 # set 2, about 8Gb; for 3090 GPU, set to 6
 # default 15000
 num_points: 15000
 num_workers: 4
@@ -50,7 +50,7 @@ num_steps: 2000
 # ---------------------------------------------------------------------------- #
 # Training options
 # ---------------------------------------------------------------------------- #
-epochs: 600
+epochs: 2
 start_epoch: 1
 base_learning_rate: 0.01
 lr_scheduler: 'step'  # step,cosine
